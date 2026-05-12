@@ -10,5 +10,20 @@ export default async function UploadPage() {
     redirect("/login?next=/upload");
   }
 
+  try {
+    const meResponse = await fetch("http://localhost:8000/auth/me", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
+
+    if (!meResponse.ok) {
+      redirect("/login?next=/upload");
+    }
+  } catch {
+    redirect("/login?next=/upload");
+  }
+
   return <UploadClient />;
 }

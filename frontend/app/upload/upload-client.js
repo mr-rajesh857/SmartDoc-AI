@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -13,12 +13,6 @@ export default function UploadClient() {
   const [error, setError] = useState("");
   const [activeFile, setActiveFile] = useState(null);
   const [activePage, setActivePage] = useState(null);
-
-  useEffect(() => {
-    if (!localStorage.getItem("token")) {
-      router.replace("/login?next=/upload");
-    }
-  }, [router]);
 
   const onDrop = useCallback((acceptedFiles) => {
     const pdfs = acceptedFiles.filter((file) => file.type === "application/pdf");

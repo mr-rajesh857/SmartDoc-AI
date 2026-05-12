@@ -31,9 +31,30 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
-    if (typeof window !== "undefined" && localStorage.getItem("token")) {
-      router.replace("/upload");
-    }
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return;
+
+    const verifyJwt = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/auth/me", {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+
+        if (res.ok) {
+          router.replace("/upload");
+          return;
+        }
+
+        localStorage.removeItem("token");
+        document.cookie = "token=; path=/; max-age=0; samesite=lax";
+      } catch {
+        localStorage.removeItem("token");
+        document.cookie = "token=; path=/; max-age=0; samesite=lax";
+      }
+    };
+
+    verifyJwt();
   }, [router]);
 
   async function submit(e) {
