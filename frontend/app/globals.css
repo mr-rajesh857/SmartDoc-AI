@@ -108,6 +108,13 @@ a {
   box-shadow: 0 12px 24px rgba(24, 168, 91, 0.18);
 }
 
+.navbar-link.btn-analytics {
+  background: linear-gradient(135deg, var(--primary-yellow), #ffb700);
+  color: #000;
+  font-weight: 700;
+  box-shadow: 0 12px 24px rgba(242, 183, 5, 0.18);
+}
+
 .navbar-link:hover {
   transform: translateY(-1px);
 }

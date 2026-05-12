@@ -47,9 +47,13 @@ export default function LoginPage() {
         }
 
         localStorage.removeItem("token");
+        localStorage.removeItem("role");
+        localStorage.removeItem("user_id");
         document.cookie = "token=; path=/; max-age=0; samesite=lax";
       } catch {
         localStorage.removeItem("token");
+        localStorage.removeItem("role");
+        localStorage.removeItem("user_id");
         document.cookie = "token=; path=/; max-age=0; samesite=lax";
       }
     };
@@ -76,6 +80,8 @@ export default function LoginPage() {
 
       if (res.ok) {
         localStorage.setItem("token", data.access_token);
+        localStorage.setItem("role", data.role);
+        localStorage.setItem("user_id", data.user_id);
         document.cookie = `token=${encodeURIComponent(data.access_token)}; path=/; max-age=3600; samesite=lax`;
         setMessage("Login successful. Redirecting to upload...");
         router.push("/upload");

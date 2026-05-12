@@ -76,6 +76,8 @@ export default function UploadClient() {
 
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("user_id");
     document.cookie = "token=; path=/; max-age=0; samesite=lax";
     router.push("/login");
   };

@@ -24,7 +24,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     roles = [user.role]
     token = create_access_token(subject=str(user.id), roles=roles)
-    return {"access_token": token, "token_type": "bearer"}
+    return {"access_token": token, "token_type": "bearer", "role": user.role, "user_id": user.id}
 
 
 @router.get("/me", response_model=schemas.UserOut)

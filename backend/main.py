@@ -13,6 +13,9 @@ from typing import List
 from dotenv import load_dotenv
 from auth.deps import get_current_user
 from auth.routes import router as auth_router
+from analytics_routes import router as analytics_router
+from db import SessionLocal
+from ocr_models import OcrData
 
 load_dotenv()
 
@@ -31,6 +34,8 @@ app = FastAPI(title="RAG OCR API")
 UPLOAD_ROOT = Path(__file__).resolve().parent / "storage" / "uploads"
 LOG_ROOT = Path(__file__).resolve().parent / "storage" / "logs"
 CHUNK_SIZE = 5
+OCR_CONCURRENCY = int(os.getenv("OCR_CONCURRENCY", "8"))
+_ocr_semaphore = asyncio.Semaphore(OCR_CONCURRENCY)
 
 LOG_ROOT.mkdir(parents=True, exist_ok=True)
 
@@ -180,6 +185,46 @@ async def ocr_page_with_gemini_async(page_bytes: bytes, page_num: int, logger: l
     return await asyncio.to_thread(ocr_page_with_gemini, page_bytes, page_num, logger)
 
 
+async def _sem_ocr_task(page_bytes: bytes, page_num: int, logger: logging.Logger | None = None) -> dict:
+    async with _ocr_semaphore:
+        return await ocr_page_with_gemini_async(page_bytes, page_num, logger)
+
+
+def _persist_ocr_record_sync(user_id: int, filename: str, document_uuid: str, num_pages: int, ocr_map: dict) -> int:
+    import time
+    attempts = 0
+    max_attempts = 3
+    backoff = 1
+    while True:
+        db = None
+        try:
+            db = SessionLocal()
+            record = OcrData(
+                user_id=user_id,
+                original_filename=filename,
+                document_uuid=document_uuid,
+                num_pages=num_pages,
+                ocr_json=ocr_map,
+            )
+            db.add(record)
+            db.commit()
+            db.refresh(record)
+            db.close()
+            return record.id
+        except Exception:
+            attempts += 1
+            try:
+                if db is not None:
+                    db.rollback()
+                    db.close()
+            except Exception:
+                pass
+            if attempts >= max_attempts:
+                raise
+            time.sleep(backoff)
+            backoff *= 2
+
+
 @app.get("/")
 def root():
     return {"message": "RAG OCR API is running"}
@@ -213,9 +258,18 @@ async def ocr_pdfs(files: List[UploadFile] = File(...), current_user=Depends(get
             stored_files = save_pdf_chunks(current_user.id, document_id, pdf_bytes, logger)
             pages = extract_pages_from_pdf(pdf_bytes, logger)
 
-            page_tasks = [ocr_page_with_gemini_async(page_bytes, page_num, logger) for page_num, page_bytes in enumerate(pages)]
+            page_tasks = [_sem_ocr_task(page_bytes, page_num, logger) for page_num, page_bytes in enumerate(pages)]
             page_results = await asyncio.gather(*page_tasks)
             logger.info("Finished processing document_id=%s total_pages=%s", document_id, len(pages))
+
+            # Persist OCR results to database
+            record_id = None
+            try:
+                ocr_map = {str(p.get("page", i + 1)): p.get("text", "") for i, p in enumerate(page_results)}
+                record_id = await asyncio.to_thread(_persist_ocr_record_sync, current_user.id, file.filename, document_id, len(pages), ocr_map)
+                logger.info("Saved OCR record id=%s for document_id=%s", record_id, document_id)
+            except Exception as e:
+                logger.exception("Failed to save OCR record for document_id=%s: %s", document_id, str(e))
 
         results.append({
             "filename": file.filename,
@@ -224,6 +278,7 @@ async def ocr_pdfs(files: List[UploadFile] = File(...), current_user=Depends(get
             "total_pages": len(pages),
             "chunk_size": CHUNK_SIZE,
             "stored_files": stored_files,
+            "ocr_record_id": record_id,
             "status": "success",
             "pages": page_results
         })
@@ -233,3 +288,6 @@ async def ocr_pdfs(files: List[UploadFile] = File(...), current_user=Depends(get
 
 # include auth router
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
+
+# include analytics router
+app.include_router(analytics_router, tags=["analytics"])
