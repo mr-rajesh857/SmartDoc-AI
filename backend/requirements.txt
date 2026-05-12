@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pymupdf
+google-generativeai
+python-dotenv
+python-multipart
+sqlalchemy
+pymysql
+bcrypt
+python-jose
+alembic
