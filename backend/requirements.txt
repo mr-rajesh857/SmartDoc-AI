@@ -9,3 +9,4 @@ pymysql
 bcrypt
 python-jose
 alembic
+chromadb

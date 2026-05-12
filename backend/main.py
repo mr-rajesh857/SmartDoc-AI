@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 from auth.deps import get_current_user
 from auth.routes import router as auth_router
 from analytics_routes import router as analytics_router
+from rag_routes import router as rag_router
 from db import SessionLocal
 from ocr_models import OcrData
 
@@ -291,3 +292,6 @@ app.include_router(auth_router, prefix="/auth", tags=["auth"])
 
 # include analytics router
 app.include_router(analytics_router, tags=["analytics"])
+
+# include rag router
+app.include_router(rag_router)
