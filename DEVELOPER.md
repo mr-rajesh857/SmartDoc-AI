@@ -289,44 +289,88 @@ export default function Page() {
 
 **Users Table**
 
+Stores user account information and authentication credentials.
+
 ```sql
 CREATE TABLE users (
-  id INTEGER PRIMARY KEY,
-  username VARCHAR UNIQUE NOT NULL,
-  email VARCHAR UNIQUE NOT NULL,
-  hashed_password VARCHAR NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-**Roles Table**
-
-```sql
-CREATE TABLE roles (
-  id INTEGER PRIMARY KEY,
-  name VARCHAR UNIQUE NOT NULL
-);
-```
-
-**User_Roles Association Table**
-
-```sql
-CREATE TABLE user_roles (
-  user_id INTEGER FOREIGN KEY,
-  role_id INTEGER FOREIGN KEY
-);
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(150) NOT NULL UNIQUE,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  role VARCHAR(50) NOT NULL DEFAULT 'user',
+  hashed_password VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_username (username),
+  INDEX idx_email (email),
+  INDEX idx_role (role)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
 **OCR Data Table**
 
+Stores extracted text and metadata from uploaded documents. Each record represents a processed document with its OCR output.
+
 ```sql
 CREATE TABLE ocr_data (
-  id INTEGER PRIMARY KEY,
-  user_id INTEGER FOREIGN KEY,
-  file_name VARCHAR NOT NULL,
-  extracted_text TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  original_filename VARCHAR(1024) NOT NULL,
+  document_uuid VARCHAR(64) NOT NULL UNIQUE,
+  num_pages INT NOT NULL,
+  ocr_json JSON NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_user_id (user_id),
+  INDEX idx_document_uuid (document_uuid),
+  INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+#### Table Columns Explained
+
+**users table:**
+
+- `id`: Auto-increment primary key
+- `username`: Unique user identifier for login (max 150 chars)
+- `email`: Unique email address for account recovery (max 255 chars)
+- `role`: User role ('admin' or 'user'), defaults to 'user'
+- `hashed_password`: Bcrypt hashed password (max 255 chars)
+- `created_at`: Record creation timestamp
+- `updated_at`: Record last update timestamp
+
+**ocr_data table:**
+
+- `id`: Auto-increment primary key
+- `user_id`: Foreign key reference to users table (CASCADE delete)
+- `original_filename`: Original filename as uploaded (max 1024 chars)
+- `document_uuid`: Unique identifier for document version tracking
+- `num_pages`: Number of pages in the PDF document
+- `ocr_json`: JSON field containing extracted text, metadata, and layout information from all pages
+- `created_at`: Record creation timestamp
+- `updated_at`: Record last update timestamp
+
+#### OCR JSON Schema Example
+
+```json
+{
+  "pages": [
+    {
+      "page_number": 1,
+      "text": "extracted text from page 1",
+      "confidence": 0.95,
+      "layout": {
+        "width": 612,
+        "height": 792
+      }
+    }
+  ],
+  "metadata": {
+    "total_pages": 5,
+    "language": "en",
+    "processing_time_ms": 2500
+  }
+}
 ```
 
 ### Migrations
@@ -367,6 +411,173 @@ from .db import get_db
 @app.get("/items")
 def get_items(db: Session = Depends(get_db)):
     return db.query(Item).all()
+```
+
+---
+
+## Docker Deployment
+
+### Project Structure
+
+The project uses a multistage Docker build with Alpine Linux for minimal image sizes:
+
+```
+Dockerfile              # Multistage build (backend)
+docker-compose.yml      # Orchestrates backend, frontend, and database
+backend/start.sh        # Startup script for backend initialization
+frontend/Dockerfile.dev # Frontend development container
+scripts/init.sql        # Database initialization script
+.env.example            # Environment variables template
+```
+
+### Setup & Configuration
+
+1. **Create .env file from template**
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Update environment variables** in `.env`:
+   ```
+   DB_USER=rag_user
+   DB_PASSWORD=your_secure_password
+   GEMINI_API_KEY=your_gemini_api_key
+   SECRET_KEY=your_secret_key_change_in_production
+   ```
+
+### Building & Running Containers
+
+**Build and start all services:**
+
+```bash
+docker-compose up --build
+```
+
+**Run in background:**
+
+```bash
+docker-compose up -d --build
+```
+
+**Stop all services:**
+
+```bash
+docker-compose down
+```
+
+**View logs:**
+
+```bash
+docker-compose logs -f backend    # Backend logs
+docker-compose logs -f frontend   # Frontend logs
+docker-compose logs -f db         # Database logs
+```
+
+### Container Services
+
+**MySQL Database** (`db`)
+
+- Port: 3306
+- Auto-initializes with `scripts/init.sql`
+- Volume: `mysql_data` for persistence
+- Health check: Enabled
+
+**Backend API** (`backend`)
+
+- Port: 8000
+- Technology: FastAPI + Python 3.11 Alpine
+- Entry: `backend/start.sh` (handles migrations)
+- Volumes: `backend/storage` for uploads/logs
+- Depends on: Healthy MySQL connection
+
+**Frontend** (`frontend`)
+
+- Port: 3000
+- Technology: Next.js 16 with Node 20 Alpine
+- Development mode with hot reload
+- Depends on: Backend API
+
+### Backend Startup Process (`start.sh`)
+
+The startup script performs:
+
+1. Waits for MySQL to be ready (30 retry attempts)
+2. Runs Alembic migrations: `alembic upgrade head`
+3. Initializes database tables: `init_db()`
+4. Starts FastAPI server: `uvicorn main:app`
+
+### Database Initialization (`scripts/init.sql`)
+
+Automatically creates:
+
+- `users` table with authentication fields
+- `ocr_data` table with document metadata
+- Proper indexes for query performance
+- Foreign key constraints
+
+### Accessing Services
+
+| Service  | URL                         | Purpose              |
+| -------- | --------------------------- | -------------------- |
+| Frontend | http://localhost:3000       | Web UI               |
+| Backend  | http://localhost:8000       | FastAPI server       |
+| Swagger  | http://localhost:8000/docs  | API documentation    |
+| ReDoc    | http://localhost:8000/redoc | Alternative API docs |
+| Database | localhost:3306              | MySQL access         |
+
+### Common Docker Commands
+
+**Rebuild specific service:**
+
+```bash
+docker-compose build backend
+docker-compose up backend
+```
+
+**Run one-off command in container:**
+
+```bash
+docker-compose exec backend alembic downgrade -1
+docker-compose exec backend python -c "from db import init_db; init_db()"
+```
+
+**Clear all data and rebuild:**
+
+```bash
+docker-compose down -v  # -v removes volumes
+docker-compose up --build
+```
+
+**Check container status:**
+
+```bash
+docker-compose ps
+```
+
+### Health Checks
+
+- **Backend**: HTTP check on `/docs` (FastAPI docs endpoint)
+- **Database**: MySQL ping check
+- **Frontend**: Runs on startup
+
+### Building Production Images
+
+For production, use a `.dockerignore`:
+
+```
+node_modules/
+__pycache__/
+.pytest_cache/
+.env
+*.log
+.git/
+```
+
+Build without cache:
+
+```bash
+docker-compose build --no-cache
 ```
 
 ---
