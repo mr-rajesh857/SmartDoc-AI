@@ -30,7 +30,7 @@ if not _gemini_key:
 genai.configure(api_key=_gemini_key)
 model = genai.GenerativeModel("gemini-2.5-flash")
 
-app = FastAPI(title="RAG OCR API")
+app = FastAPI(title="DocuMind API")
 
 UPLOAD_ROOT = Path(__file__).resolve().parent / "storage" / "uploads"
 LOG_ROOT = Path(__file__).resolve().parent / "storage" / "logs"

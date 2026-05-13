@@ -1,6 +1,6 @@
 # Developer Guide
 
-Comprehensive documentation for developers working on the RAG Project.
+Comprehensive documentation for developers working on DocuMind.
 
 ## Table of Contents
 

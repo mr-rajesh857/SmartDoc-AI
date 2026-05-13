@@ -42,8 +42,8 @@ export default function RootLayout({ children }) {
       <body>
         <nav className="navbar">
           <Link href="/" className="navbar-brand">
-            <span>◈</span>
-            <strong>DocOCR</strong>
+            <span>🧠</span>
+            <strong>DocuMind</strong>
           </Link>
           <div className="navbar-links">
             {isLoggedIn && isAdmin && (

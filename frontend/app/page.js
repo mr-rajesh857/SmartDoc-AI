@@ -8,7 +8,7 @@ export default function Home() {
           <p className="eyebrow">Secure document workspace</p>
           <h1>Fast PDF extraction with clean, role-based access.</h1>
           <p className="lede">
-            DocOCR gives you a simple landing page, secure login, and
+            DocuMind gives you a simple landing page, secure login, and
             registration flow. Use your account to access the document upload
             workspace after signing in.
           </p>
@@ -22,7 +22,7 @@ export default function Home() {
         </div>
 
         <div className="home-panel">
-          <div className="panel-badge">DocOCR</div>
+          <div className="panel-badge">DocuMind</div>
           <div className="panel-card">
             <h2>One place to start, one place to sign in.</h2>
             <p>

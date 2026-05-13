@@ -1,6 +1,6 @@
-# RAG Project
+# DocuMind
 
-A comprehensive Retrieval-Augmented Generation (RAG) system with OCR capabilities, user authentication, and analytics.
+A comprehensive document intelligence platform with OCR capabilities, semantic search, user authentication, and analytics.
 
 ## Overview
 
@@ -10,7 +10,8 @@ This project combines a Next.js frontend with a FastAPI backend to provide a doc
 - **Semantic Search**: Query your document collection using embeddings-based retrieval
 - **User Authentication**: Secure role-based access control
 - **Analytics**: Track usage and document processing metrics
-- **Chroma Vector DB**: Persistent vector storage for embeddings
+  - **Chroma Vector DB**: Persistent vector storage for embeddings
+  - **DocuMind Intelligence**: Advanced document understanding and retrieval
 
 ## Tech Stack
 
